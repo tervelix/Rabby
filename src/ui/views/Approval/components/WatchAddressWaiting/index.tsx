@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { matomoRequestEvent } from '@/utils/matomo-request';
-import { DEFAULT_BRIDGE } from '@rabby-wallet/eth-walletconnect-keyring';
 import { Account } from 'background/service/preference';
 import {
   CHAINS,
@@ -45,7 +44,6 @@ const WatchAddressWaiting = ({ params }: { params: ApprovalParams }) => {
     (item) => item.id === (params.chainId || 1)
   )!.enum;
   const isSignTextRef = useRef(false);
-  const [bridgeURL, setBridge] = useState<string>(DEFAULT_BRIDGE);
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
   const explainRef = useRef<any | null>(null);
   const [signFinishedData, setSignFinishedData] = useState<{
@@ -63,9 +61,11 @@ const WatchAddressWaiting = ({ params }: { params: ApprovalParams }) => {
       account.address,
       account.brandName
     );
-    setConnectStatus(
-      status === null ? WALLETCONNECT_STATUS_MAP.PENDING : status
-    );
+    if (status) {
+      setConnectStatus(
+        status === null ? WALLETCONNECT_STATUS_MAP.PENDING : status
+      );
+    }
     eventBus.addEventListener(EVENTS.WALLETCONNECT.INITED, ({ uri }) => {
       setQrcodeContent(uri);
     });
@@ -108,12 +108,8 @@ const WatchAddressWaiting = ({ params }: { params: ApprovalParams }) => {
     const account = params.isGnosis
       ? params.account!
       : (await wallet.syncGetCurrentAccount())!;
-    const bridge = await wallet.getWalletConnectBridge(
-      account.address,
-      account.brandName
-    );
+
     setCurrentAccount(account);
-    setBridge(bridge || DEFAULT_BRIDGE);
 
     let isSignTriggered = false;
     const isText = params.isGnosis
@@ -270,16 +266,6 @@ const WatchAddressWaiting = ({ params }: { params: ApprovalParams }) => {
     initWalletConnect();
   };
 
-  const handleBridgeChange = async (val: string) => {
-    const account = params.isGnosis
-      ? params.account!
-      : (await wallet.syncGetCurrentAccount())!;
-    setBridge(val);
-    eventBus.removeAllEventListeners(EVENTS.WALLETCONNECT.INITED);
-    initWalletConnect();
-    wallet.setWalletConnectBridge(account.address, account.brandName, val);
-  };
-
   useEffect(() => {
     init();
     setHeight(340);
@@ -312,10 +298,7 @@ const WatchAddressWaiting = ({ params }: { params: ApprovalParams }) => {
         currentAccount ? (
           <Scan
             uri={qrcodeContent}
-            bridgeURL={bridgeURL}
-            onBridgeChange={handleBridgeChange}
             onRefresh={handleRefreshQrCode}
-            defaultBridge={DEFAULT_BRIDGE}
             account={currentAccount}
           />
         ) : (

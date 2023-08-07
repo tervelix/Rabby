@@ -6,7 +6,6 @@ import QRCode from 'qrcode.react';
 import QRCodeReader from 'ui/component/QRCodeReader';
 import { isValidAddress } from 'ethereumjs-util';
 import WalletConnect from '@rabby-wallet/wc-client';
-import { DEFAULT_BRIDGE } from '@rabby-wallet/eth-walletconnect-keyring';
 import { Popup, StrayPageWithButton } from 'ui/component';
 import { useWallet, useWalletRequest } from 'ui/utils';
 import { openInternalPageInTab } from 'ui/utils/webapi';
@@ -105,7 +104,6 @@ const ImportWatchAddress = () => {
   const handleImportByWalletconnect = async () => {
     localStorage.removeItem('walletconnect');
     connector.current = new WalletConnect({
-      bridge: DEFAULT_BRIDGE,
       clientMeta: {
         description: t('appDescription'),
         url: 'https://rabby.io',

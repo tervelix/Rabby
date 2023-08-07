@@ -60,7 +60,7 @@ import {
 } from '@rabby-wallet/rabby-security-engine/dist/rules';
 import DisplayKeyring from '../service/keyring/display';
 import provider from './provider';
-import WalletConnectKeyring from '@rabby-wallet/eth-walletconnect-keyring';
+import { WalletConnectKeyring } from '@rabby-wallet/eth-walletconnect-keyring';
 import eventBus from '@/eventBus';
 import {
   setPageStateCacheWhenPopupClose,
@@ -1720,8 +1720,6 @@ export class WalletController extends BaseController {
     } catch {
       const WalletConnect = keyringService.getKeyringClassForType(keyringType);
       keyring = new WalletConnect({
-        accounts: [],
-        brandName: brandName,
         // 1h
         maxDuration: 3600000,
         clientMeta: {
@@ -1730,10 +1728,11 @@ export class WalletController extends BaseController {
           icons: ['https://rabby.io/assets/images/logo.png'],
           name: 'Rabby',
         },
+        projectId: '69829a70627b57cd18d42e8f6341f410',
       });
       isNewKey = true;
     }
-    const { uri } = await keyring.initConnector(brandName);
+    const { uri } = await keyring.initConnector(brandName, 1);
     let stashId = curStashId;
     if (isNewKey) {
       stashId = this.addKeyringToStash(keyring);
@@ -1795,40 +1794,6 @@ export class WalletController extends BaseController {
     };
   };
 
-  getWalletConnectBridge = (address: string, brandName: string) => {
-    const keyringType = KEYRING_CLASS.WALLETCONNECT;
-    const keyring: WalletConnectKeyring = this._getKeyringByType(keyringType);
-    if (keyring) {
-      const target = keyring.accounts.find(
-        (account) =>
-          account.address.toLowerCase() === address.toLowerCase() &&
-          brandName === account.brandName
-      );
-
-      if (target) return target.bridge;
-
-      return null;
-    }
-    return null;
-  };
-
-  getWalletConnectConnectors = () => {
-    const keyringType = KEYRING_CLASS.WALLETCONNECT;
-    const keyring: WalletConnectKeyring = this._getKeyringByType(keyringType);
-    if (keyring) {
-      const result: { address: string; brandName: string }[] = [];
-      for (const key in keyring.connectors) {
-        const target = keyring.connectors[key];
-        result.push({
-          address: key.split('-')[1],
-          brandName: target.brandName,
-        });
-      }
-      return result;
-    }
-    return [];
-  };
-
   killWalletConnectConnector = async (
     address: string,
     brandName: string,
@@ -1838,17 +1803,11 @@ export class WalletController extends BaseController {
     const keyringType = KEYRING_CLASS.WALLETCONNECT;
     const keyring: WalletConnectKeyring = this._getKeyringByType(keyringType);
     if (keyring) {
-      const connector =
-        keyring.connectors[`${brandName}-${address.toLowerCase()}`];
-      if (connector) {
-        await keyring.closeConnector(
-          connector.connector,
-          address,
-          brandName,
-          silent
-        );
+      const topic = keyring.cached.findTopic({ address, brandName });
+      if (topic) {
+        await keyring.closeConnector({ topic }, silent);
         // reset onAfterConnect
-        if (resetConnect) keyring.onAfterConnect = null;
+        if (resetConnect) keyring.onAfterSessionCreated = undefined;
       }
     }
   };
@@ -1890,7 +1849,6 @@ export class WalletController extends BaseController {
     keyring.setAccountToAdd({
       address,
       brandName,
-      bridge,
       realBrandName,
       realBrandUrl,
     });
